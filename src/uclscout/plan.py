@@ -46,6 +46,11 @@ UNLIMITED_MATCHDAYS = frozenset({1, 9, 11})
 # Later matchdays are less certain; discount them rather than pretend otherwise.
 HORIZON_DECAY = 0.90
 POOL_SIZE = 130          # candidates kept for the multi-period solve
+# A free transfer is not a free action: it has option value, and spending one
+# for a fraction of a point is how a planner talks itself into churn. The first
+# run of this sold Kane at MD3 and bought him back at MD4. This is the bar a
+# transfer must clear even when it costs no points.
+CHURN_PENALTY = 0.35
 
 
 @dataclass
@@ -162,6 +167,9 @@ def plan_horizon(
         pulp.lpSum(pts(i, md) * start[i][md] + pts(i, md) * capt[i][md]
                    for i in pool_ids for md in mds)
         - pulp.lpSum(hit_cost * hits[md] for md in mds)
+        # every transfer pays the churn bar, including "free" ones
+        - pulp.lpSum(CHURN_PENALTY * buy[i][md]
+                     for i in pool_ids for md in mds[1:])
     )
 
     for md in mds:
@@ -229,6 +237,12 @@ def plan_horizon(
                 prev_avail = FREE_PER_MATCHDAY + (carry[prev] if k > 1 else 0)
                 m += carry[md] <= prev_avail - pulp.lpSum(buy[i][prev]
                                                           for i in pool_ids)
+    # A wildcard on the LAST matchday of the horizon has no future to pay off,
+    # so the solver parks it there for free. It is also genuinely near-worthless
+    # in the real game: MD9 and MD11 hand out unlimited transfers anyway, so a
+    # wildcard immediately before one buys almost nothing.
+    if len(mds) > 1:
+        m += wc[mds[-1]] == 0
     m += pulp.lpSum(wc[md] for md in mds) <= (1 if allow_wildcard else 0)
 
     solver = pulp.PULP_CBC_CMD(msg=0, timeLimit=time_limit)
