@@ -5,6 +5,7 @@ import { useCountdown } from "../lib/useCountdown";
 import { WarningIcon } from "../components/Icons";
 import { CountdownHero } from "../components/CountdownHero";
 import { TrustNote } from "../components/PlayerBits";
+import { kitFor } from "../lib/clubColours";
 
 const POS_ORDER = ["GK", "DEF", "MID", "FWD"] as const;
 const POS_LABEL: Record<string, string> = { GK: "Goalkeeper", DEF: "Defenders", MID: "Midfielders", FWD: "Forwards" };
@@ -36,20 +37,6 @@ export function NowView({ squad }: { squad: SquadData }) {
           </div>
         </div>
       )}
-
-      <h2 className="section-label">Checklist</h2>
-      <ol className="checklist">
-        {squad.checklist.map((item, i) => {
-          const warn = item.startsWith("WARNING:");
-          const text = warn ? item.slice("WARNING: ".length) : item;
-          return (
-            <li key={i} className={warn ? "checklist__item checklist__item--warning" : "checklist__item"}>
-              <span className="checklist__num">{i + 1}</span>
-              <span className="checklist__text">{warn ? text[0].toUpperCase() + text.slice(1) : text}</span>
-            </li>
-          );
-        })}
-      </ol>
 
       <div className="summary-row">
         <div className="summary-cell">
@@ -87,12 +74,11 @@ export function NowView({ squad }: { squad: SquadData }) {
 
       <h2 className="section-label">Starting XI</h2>
       <div className="pitch">
+        <PitchMarkings />
         {POS_ORDER.map((pos) => {
           const inPos = starters.filter((p) => p.pos === pos);
           if (inPos.length === 0) return null;
-          return (
-            <PitchRow key={pos} label={POS_LABEL[pos]} players={inPos} />
-          );
+          return <PitchRow key={pos} label={POS_LABEL[pos]} players={inPos} />;
         })}
       </div>
 
@@ -102,6 +88,37 @@ export function NowView({ squad }: { squad: SquadData }) {
           <PlayerRow key={p.id} p={p} bench />
         ))}
       </div>
+
+      <h2 className="section-label">Checklist</h2>
+      <ol className="checklist">
+        {squad.checklist.map((item, i) => {
+          const warn = item.startsWith("WARNING:");
+          const text = warn ? item.slice("WARNING: ".length) : item;
+          return (
+            <li key={i} className={warn ? "checklist__item checklist__item--warning" : "checklist__item"}>
+              <span className="checklist__num">{i + 1}</span>
+              <span className="checklist__text">{warn ? text[0].toUpperCase() + text.slice(1) : text}</span>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+/** Purely decorative pitch markings — mown-stripe turf comes from CSS on
+ * .pitch itself; these are the chalk lines (box, six-yard, D, spot, and the
+ * centre circle poking up from the bottom edge). aria-hidden: the real
+ * structure for assistive tech is the position-grouped lists below. */
+function PitchMarkings() {
+  return (
+    <div className="pitch-lines" aria-hidden="true">
+      <div className="pitch-line pitch-line--outer" />
+      <div className="pitch-line pitch-line--penalty" />
+      <div className="pitch-line pitch-line--six" />
+      <div className="pitch-line pitch-line--d" />
+      <div className="pitch-line pitch-line--spot" />
+      <div className="pitch-line pitch-line--circle" />
     </div>
   );
 }
@@ -122,51 +139,38 @@ function PitchRow({ label, players }: { label: string; players: SquadPick[] }) {
   );
 }
 
+/** The pitch card shows only what a formation graphic shows: kit, name, and
+ * club/price/position. Points, the recoveries edge, and the guessed-minutes
+ * warning all stay on the bench rows and the Players table — adding them
+ * here is what made the formation read as cluttered.
+ *
+ * Kit, not position, carries the stripe now: two players from the same club
+ * render identically, so the pitch reads as eleven shirts, not a bag of
+ * position-coloured tiles. Position survives as the quiet letter at the end
+ * of the club/price line. */
 function PitchCard({ p }: { p: SquadPick }) {
-  const [showNote, setShowNote] = useState(false);
-  const classes = ["pitch-card"];
-  if (p.captain) classes.push("pitch-card--captain");
-  if (!p.minutesTrusted) classes.push("pitch-card--untrusted");
-  const elite = p.recoveriesPer90 != null && p.recoveriesPer90 >= 6;
-
+  const kit = kitFor(p.teamId);
   return (
-    <li className={classes.join(" ")}>
-      <div className="pitch-card__name-row">
-        {p.captain && (
-          <span className="armband" title="Captain" aria-label="Captain">
-            C
-          </span>
-        )}
-        <span className="pitch-card__name">{p.name}</span>
-      </div>
-      <span className="pitch-card__team">
-        {p.team} · {formatDay(p.day)}
-      </span>
-      {(elite || !p.minutesTrusted) && (
-        <div className="pitch-card__badges">
-          {elite && (
-            <span className="badge badge--recoveries" title={`${p.recoveriesPer90!.toFixed(2)} recoveries/90 — elite floor`}>
-              {p.recoveriesPer90!.toFixed(1)}<span className="badge__unit"> rec/90</span>
-            </span>
-          )}
-          {!p.minutesTrusted && (
-            <button
-              type="button"
-              className="trust-chip"
-              aria-expanded={showNote}
-              onClick={() => setShowNote((o) => !o)}
-              title={p.minutesNote}
-            >
-              <WarningIcon />
-              Guessed mins
-            </button>
-          )}
-        </div>
+    <li className="pitch-card">
+      {p.captain && (
+        <span className="armband-roundel" title="Captain" aria-label="Captain">
+          C
+        </span>
       )}
-      {showNote && !p.minutesTrusted && <TrustNote note={p.minutesNote} />}
-      <div className="pitch-card__stats">
-        <span className="pitch-card__value">{formatMoney(p.value)}</span>
-        <span className="pitch-card__points">{p.points.toFixed(1)}</span>
+      <div
+        className="pitch-card__inner"
+        style={{ backgroundImage: `linear-gradient(180deg, ${kit.primary}2e 0%, transparent 60%)` }}
+      >
+        <span
+          className="pitch-card__stripe"
+          style={{ background: `linear-gradient(90deg, ${kit.primary} 50%, ${kit.secondary} 50%)` }}
+        />
+        <div className="pitch-card__body">
+          <p className="pitch-card__name">{p.name}</p>
+          <p className="pitch-card__team">
+            {p.team} · {formatMoney(p.value)} · {p.pos[0]}
+          </p>
+        </div>
       </div>
     </li>
   );
@@ -209,7 +213,8 @@ function PlayerRow({ p, bench }: { p: SquadPick; bench?: boolean }) {
         )}
         {p.recoveriesPer90 != null && p.recoveriesPer90 >= 6 && (
           <span className="badge badge--recoveries" title={`${p.recoveriesPer90.toFixed(2)} recoveries/90`}>
-            {p.recoveriesPer90.toFixed(1)}<span className="badge__unit"> rec/90</span>
+            {p.recoveriesPer90.toFixed(1)}
+            <span className="badge__unit"> rec/90</span>
           </span>
         )}
         <span className="player-row__stats">

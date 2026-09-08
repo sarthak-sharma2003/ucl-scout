@@ -2,15 +2,18 @@
    UCL SCOUT — design tokens
    Direction: matchday-programme squad sheet. Ink on paper by day,
    matchday-night ink on near-black by night. One accent (champions-night
-   indigo) plus a functional status ramp for urgency/warnings. Libre Franklin
-   for reading, Archivo Narrow for section/nav labels, JetBrains Mono for
-   anything that ticks or lines up in columns.
+   indigo) plus a functional status ramp for urgency/warnings. Barlow
+   Condensed for display/headings, Space Grotesk for body/UI, Space Mono for
+   anything that ticks or lines up in columns — shared with the sibling
+   fpl-ai-scout project so the two feel related. The Starting XI pitch is its
+   own visual world (volt-on-turf) matching that sibling's pitch component;
+   everything else keeps the indigo accent above.
    ========================================================================= */
 
 :root {
-  --font-body: "Libre Franklin", system-ui, sans-serif;
-  --font-label: "Archivo Narrow", var(--font-body);
-  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-body: "Space Grotesk", system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-label: "Barlow Condensed", "Space Grotesk", system-ui, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* --- light: matchday programme on paper --- */
   --bg: #f4f0e6;
@@ -36,8 +39,18 @@
   --shadow-1: 0 1px 2px rgba(27, 24, 17, 0.08), 0 1px 1px rgba(27, 24, 17, 0.06);
   --shadow-2: 0 4px 16px rgba(27, 24, 17, 0.12), 0 1.5px 4px rgba(27, 24, 17, 0.1);
 
-  --pitch-bg: #e4e6d3;
-  --pitch-line: rgba(27, 24, 17, 0.14);
+  /* Pitch is its own fixed dark world — same in both themes, like the
+     sibling project's. Never redefined under the dark-theme blocks below. */
+  --pitch-turf-1: #132a1c;
+  --pitch-turf-2: #0b1d13;
+  --pitch-chalk: rgba(255, 255, 255, 0.25);
+  --pitch-card-bg: rgba(7, 20, 16, 0.85);
+  --pitch-name: #edf5ef;
+  --pitch-meta: #6f8f7d;
+  --pitch-volt: #d4f34b;
+  --pitch-volt-deep: #a9cc2b;
+  --pitch-armband-bg: #f0b23e;
+  --pitch-armband-ink: #241a06;
 
   color-scheme: light;
 }
@@ -67,8 +80,6 @@
     --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3);
     --shadow-2: 0 8px 28px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
 
-    --pitch-bg: #182219;
-    --pitch-line: rgba(243, 239, 226, 0.13);
     color-scheme: dark;
   }
 }
@@ -97,8 +108,6 @@
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3);
   --shadow-2: 0 8px 28px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
 
-  --pitch-bg: #182219;
-  --pitch-line: rgba(243, 239, 226, 0.13);
   color-scheme: dark;
 }
 
@@ -962,15 +971,57 @@ table {
 
 .pitch-card {
   position: relative;
+  width: 9rem;
+  list-style: none;
+  animation: card-in 360ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+/* The card wears its club's kit: a two-colour stripe across the top and a
+   quiet wash of the primary down the body (set inline from clubColours.ts,
+   since the colour is per-player data, not a static class). Kept low-alpha so
+   eleven cards still read as one pitch rather than a bag of sweets. */
+.pitch-card__inner {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  width: 9rem;
-  background: var(--bg-raised);
-  border: 1px solid var(--rule-strong);
-  box-shadow: var(--shadow-1);
-  padding: 0.55rem 0.6rem 0.5rem;
-  animation: card-in 360ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  overflow: hidden;
+  border-radius: 6px;
+  background-color: rgba(7, 20, 16, 0.85);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.pitch-card__stripe {
+  display: block;
+  width: 100%;
+  height: 5px;
+  flex: none;
+}
+
+.pitch-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.45rem 0.5rem 0.5rem;
+  text-align: center;
+}
+
+/* Armband, not an inline chip: a roundel clipped to the card's top-right. */
+.armband-roundel {
+  position: absolute;
+  top: -0.35rem;
+  right: -0.35rem;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  background: var(--armband, #f0b23e);
+  color: #221803;
+  font-family: var(--font-label);
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .pitch-row:nth-child(1) .pitch-card {
@@ -1034,9 +1085,10 @@ table {
 
 .pitch-card__name {
   font-weight: 700;
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   line-height: 1.15;
   overflow-wrap: anywhere;
+  color: #edf5ef;
 }
 
 .armband {
@@ -1055,8 +1107,11 @@ table {
 }
 
 .pitch-card__team {
-  font-size: 0.68rem;
-  color: var(--ink-tertiary);
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6f8f7d;
 }
 
 .pitch-card__badges {
