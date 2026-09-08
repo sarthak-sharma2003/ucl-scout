@@ -9,11 +9,11 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
-from . import plan as planning
 from . import pipeline
+from . import plan as planning
 from .optimize import Squad
 from .project import Projection
 
@@ -62,7 +62,7 @@ def build(ctx: pipeline.Context, out_dir: Path, *,
           current_squad: set[int] | None = None,
           time_limit: int = 120) -> dict[str, Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     md = ctx.constraints.matchday
     this_md = next((m for m in ctx.matchdays if m.id == md), None)
     projections = pipeline.project_matchday(ctx, md)

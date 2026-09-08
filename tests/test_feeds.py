@@ -1,5 +1,5 @@
 """Offline unit tests for uclscout.feeds. No network calls."""
-from datetime import timezone
+from datetime import UTC
 
 import pytest
 
@@ -15,7 +15,7 @@ def test_parse_uefa_time_both_formats_agree():
 def test_parse_uefa_time_returns_aware_utc():
     dt = parse_uefa_time("09/08/2026 18:45:00")
     assert dt.tzinfo is not None
-    assert dt.tzinfo == timezone.utc
+    assert dt.tzinfo == UTC
 
 
 def test_parse_uefa_time_garbage_raises_feed_error():

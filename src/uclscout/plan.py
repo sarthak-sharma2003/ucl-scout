@@ -27,6 +27,7 @@ MODELLING NOTES, and why each is shaped this way:
 """
 from __future__ import annotations
 
+import itertools
 from dataclasses import dataclass, field
 
 import pulp
@@ -207,7 +208,7 @@ def plan_horizon(
             m += sell[i][first] == 0
         else:
             m += own[i][first] == opening + buy[i][first] - sell[i][first]
-        for prev, md in zip(mds, mds[1:]):
+        for prev, md in itertools.pairwise(mds):
             m += own[i][md] == own[i][prev] + buy[i][md] - sell[i][md]
             m += buy[i][md] + sell[i][md] <= 1
 
@@ -370,10 +371,10 @@ def matchday_checklist(matchday: int, gamedays: list[str],
     nothing but attention.
     """
     out = [
-        f"MD{matchday} spans {len(gamedays)} days ({', '.join(gamedays)}) "
-        f"— up to {subs_allowed} manual subs allowed.",
-        "After day 1, reassess: move the armband to an unstarted player if your "
-        "captain blanked. Top-5000 do this 44.6% of the time; average 6.1%.",
+        (f"MD{matchday} spans {len(gamedays)} days ({', '.join(gamedays)}) "
+        f"— up to {subs_allowed} manual subs allowed."),
+        ("After day 1, reassess: move the armband to an unstarted player if your "
+        "captain blanked. Top-5000 do this 44.6% of the time; average 6.1%."),
         "Sub out anyone who did not play, before the next day kicks off.",
     ]
     if len(gamedays) > 1:

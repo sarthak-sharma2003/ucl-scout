@@ -21,7 +21,7 @@ from __future__ import annotations
 import json
 import urllib.request
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -83,7 +83,7 @@ def parse_uefa_time(s: str) -> datetime:
             naive = datetime.strptime(s, fmt)
         except ValueError:
             continue
-        return naive.replace(tzinfo=UEFA_TZ).astimezone(timezone.utc)
+        return naive.replace(tzinfo=UEFA_TZ).astimezone(UTC)
     raise FeedError(f"unrecognised UEFA timestamp {s!r}")
 
 

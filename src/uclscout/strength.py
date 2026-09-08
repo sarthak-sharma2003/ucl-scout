@@ -85,8 +85,8 @@ def fit_elo(results: list[Result], pots: dict[int, int] | None = None
     for r in results:
         if season is not None and r.season != season:
             # between seasons, regress toward the mean: squads turn over
-            for t in rating:
-                rating[t] = BASE + (rating[t] - BASE) * (1 - REGRESS_TO_MEAN)
+            for t, v in rating.items():
+                rating[t] = BASE + (v - BASE) * (1 - REGRESS_TO_MEAN)
         season = r.season
 
         rh, ra = get(r.home_id), get(r.away_id)

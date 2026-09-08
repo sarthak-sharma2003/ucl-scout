@@ -262,16 +262,16 @@ def demo():
             pos = ["GK", "DEF", "MID", "FWD"][pid % 4]
             # good players score more; the signal is learnable from PAST rounds
             base = 6 if pid < 20 else 1
-            rows.append(dict(season="T", tour=1, matchday=md, player_id=pid,
-                             name=f"P{pid}", team_id=pid % 12, team="t",
-                             pos=pos, value=4.0 + (pid % 8) * 0.5,
-                             md_points=base + (pid + md) % 3,
-                             selected_pct=1, status="",
-                             season_total_points=999,   # the answer: must leak nowhere
-                             season_minutes=0, season_recoveries=0,
-                             season_goals=0, season_assists=0,
-                             season_clean_sheets=0, season_saves=0,
-                             season_motm=0))
+            rows.append({"season": "T", "tour": 1, "matchday": md, "player_id": pid,
+                             "name": f"P{pid}", "team_id": pid % 12, "team": "t",
+                             "pos": pos, "value": 4.0 + (pid % 8) * 0.5,
+                             "md_points": base + (pid + md) % 3,
+                             "selected_pct": 1, "status": "",
+                             "season_total_points": 999,   # the answer: must leak nowhere
+                             "season_minutes": 0, "season_recoveries": 0,
+                             "season_goals": 0, "season_assists": 0,
+                             "season_clean_sheets": 0, "season_saves": 0,
+                             "season_motm": 0})
     df = pd.DataFrame(rows)
 
     # the legal view must expose no season-final column, at any matchday

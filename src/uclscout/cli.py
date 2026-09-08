@@ -1,7 +1,7 @@
 """uclscout command line."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import typer
@@ -29,7 +29,7 @@ def _squad_ids(path: Path | None) -> set[int]:
 def status() -> None:
     """Deadline, matchday and whether anything is stale."""
     c = feeds.constraints()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     delta = c.deadline - now
     hours = delta.total_seconds() / 3600
     state = (f"{hours:.1f}h remaining" if hours > 0
