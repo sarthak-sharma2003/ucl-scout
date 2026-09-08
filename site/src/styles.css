@@ -1098,29 +1098,90 @@ table {
 }
 
 @media (max-width: 480px) {
+  /* Keep the FORMATION on a phone. An earlier version stacked each positional
+     row into a column here, which turned the pitch back into the flat list the
+     pitch exists to replace -- and a phone is where this gets read, minutes
+     before a deadline. Cards shrink instead: surname and projected points
+     only, since club and price are secondary when you are scanning shape. */
   .pitch {
-    padding: 1rem 0.6rem;
+    padding: 0.75rem 0.4rem;
   }
 
   .pitch-row {
-    flex-direction: column;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.3rem;
     align-items: stretch;
   }
 
   .pitch-card {
-    width: auto;
-    flex-direction: row;
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 5.2rem;
+    padding: 0.35rem 0.25rem;
+    flex-direction: column;
     align-items: center;
-    justify-content: space-between;
+    text-align: center;
+    gap: 0.15rem;
+  }
+
+  /* secondary on a small screen: shape and points are what you scan for */
+  .pitch-card__team,
+  .pitch-card__value {
+    display: none;
+  }
+
+  .pitch-card__name {
+    font-size: 0.62rem;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+  }
+
+  .pitch-card__name-row {
+    justify-content: center;
+    gap: 0.15rem;
   }
 
   .pitch-card__stats {
     border-top: none;
     padding-top: 0;
     margin-top: 0;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 0.1rem;
+    flex-direction: row;
+    justify-content: center;
+  }
+
+  .pitch-card__points {
+    font-size: 0.72rem;
+  }
+
+  .pitch-card__badges {
+    justify-content: center;
+  }
+
+  /* On a phone the badge label wraps and makes one card taller than the rest,
+     breaking the formation line. Keep the number, drop the words -- the
+     Players view carries the full label. */
+  .pitch-card .badge--recoveries {
+    font-size: 0.55rem;
+    padding: 0 0.2rem;
+    line-height: 1.4;
+    white-space: nowrap;
+  }
+
+  .pitch-card .badge--recoveries .badge__unit {
+    display: none;
+  }
+
+  /* the offset that fakes depth costs horizontal room we no longer have */
+  .pitch-row:nth-child(1) .pitch-card,
+  .pitch-row:nth-child(2) .pitch-card:nth-child(1),
+  .pitch-row:nth-child(2) .pitch-card:nth-child(2),
+  .pitch-row:nth-child(2) .pitch-card:nth-child(3),
+  .pitch-row:nth-child(3) .pitch-card:nth-child(2),
+  .pitch-row:nth-child(3) .pitch-card:nth-child(3),
+  .pitch-row:nth-child(3) .pitch-card:nth-child(4) {
+    transform: none;
   }
 }
 

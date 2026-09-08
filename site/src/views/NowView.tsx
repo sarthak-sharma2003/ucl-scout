@@ -146,7 +146,7 @@ function PitchCard({ p }: { p: SquadPick }) {
         <div className="pitch-card__badges">
           {elite && (
             <span className="badge badge--recoveries" title={`${p.recoveriesPer90!.toFixed(2)} recoveries/90 — elite floor`}>
-              {p.recoveriesPer90!.toFixed(1)} rec/90
+              {p.recoveriesPer90!.toFixed(1)}<span className="badge__unit"> rec/90</span>
             </span>
           )}
           {!p.minutesTrusted && (
@@ -209,7 +209,7 @@ function PlayerRow({ p, bench }: { p: SquadPick; bench?: boolean }) {
         )}
         {p.recoveriesPer90 != null && p.recoveriesPer90 >= 6 && (
           <span className="badge badge--recoveries" title={`${p.recoveriesPer90.toFixed(2)} recoveries/90`}>
-            {p.recoveriesPer90.toFixed(1)} rec/90
+            {p.recoveriesPer90.toFixed(1)}<span className="badge__unit"> rec/90</span>
           </span>
         )}
         <span className="player-row__stats">
