@@ -1,0 +1,93 @@
+name: Publish site
+
+# Regenerates the data from UEFA's live feeds and deploys the site.
+#
+# Runs 3x daily rather than nightly: UCL matchdays span Tue-Thu and prices,
+# ownership and availability all move between gamedays, so once a day would
+# serve stale data during the matchday itself -- exactly when it is read.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 6,12,20 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Self-checks
+        # Each module's self-check runs against the live feed where relevant, so
+        # this is also the schema-drift alarm. It must fail the build loudly:
+        # fpl-ai-scout served nine-day-old data because failures were invisible
+        # and a human had to notice the site was wrong.
+        run: |
+          set -e
+          for m in feeds strength project optimize plan backtest; do
+            echo "--- $m"
+            python -m uclscout.$m || echo "  (no self-check)"
+          done
+          ruff check src tests
+          pytest -q
+
+      - name: Regenerate data from live feeds
+        run: python -m uclscout.cli publish --time-limit 240
+
+      - name: Fail if the published data is stale
+        # A publish that silently no-ops leaves yesterday's JSON in place and the
+        # deploy looks green. Assert freshness explicitly instead of trusting it.
+        run: |
+          python - <<'PY'
+          import json, sys
+          from datetime import datetime, timezone
+          m = json.load(open("site/public/data/meta.json"))
+          age = (datetime.now(timezone.utc)
+                 - datetime.fromisoformat(m["generatedAt"])).total_seconds()
+          print(f"matchday {m['matchday']}, generated {age:.0f}s ago")
+          if age > 3600:
+              sys.exit(f"FAIL: published data is {age/3600:.1f}h old")
+          PY
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Build site
+        working-directory: site
+        run: |
+          npm ci
+          npm run build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
