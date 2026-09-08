@@ -40,6 +40,12 @@ class Result:
     home_goals: int
     away_goals: int
     season: str
+    # Cross-league calibration weight. Only continental matches tell you how two
+    # LEAGUES compare; domestic ones only order clubs within one. Fitting both at
+    # full weight put Bodo/Glimt 2nd and AEK Athens 5th in Europe, because
+    # dominating a weak league looks identical to dominating a strong one when
+    # nothing anchors the scales together.
+    weight: float = 1.0
 
 
 def historical_results(tours: list[int]) -> list[Result]:
@@ -89,7 +95,7 @@ def fit_elo(results: list[Result], pots: dict[int, int] | None = None
                    else 0.0 if r.home_goals < r.away_goals else 0.5)
         # margin-of-victory multiplier, capped so 6-0 games don't dominate
         mov = math.log1p(abs(r.home_goals - r.away_goals)) + 1.0
-        delta = K * mov * (score_h - exp_h)
+        delta = K * r.weight * mov * (score_h - exp_h)
         rating[r.home_id] = rh + delta
         rating[r.away_id] = ra - delta
     return rating
@@ -129,6 +135,12 @@ def demo():
     # Clean sheets get harder as the opponent gets better.
     assert clean_sheet_prob(0.5) > clean_sheet_prob(2.5)
     assert 0.0 < clean_sheet_prob(1.35) < 1.0
+
+    # A down-weighted match must move ratings less than a full-weight one.
+    light = [Result(f"2024-01-{d:02d}", 5, 6, 3, 0, "2024-25", weight=0.2)
+             for d in range(1, 13)]
+    el = fit_elo(light)
+    assert abs(el[5] - BASE) < abs(e[1] - BASE), "weight is not applied"
 
     # Between-season regression must actually pull toward the mean.
     two = res + [Result("2025-01-01", 3, 4, 1, 1, "2025-26")]

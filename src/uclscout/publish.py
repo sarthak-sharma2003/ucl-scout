@@ -84,7 +84,6 @@ def build(ctx: pipeline.Context, out_dir: Path, *,
             this_md.subs_allowed if this_md else 0),
     }
 
-    p = ctx.constraints
     the_plan = pipeline.build_plan(ctx, current_squad=current_squad,
                                    time_limit=time_limit)
     plan_json = {

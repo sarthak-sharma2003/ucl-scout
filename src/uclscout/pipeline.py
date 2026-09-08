@@ -1,9 +1,9 @@
 """End-to-end: live feeds -> Elo -> projections -> squad -> multi-matchday plan."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
-from . import feeds, plan, project, strength
+from . import domestic, feeds, plan, project, strength
 
 ARCHIVED_TOURS = [30, 40, 50, 60, 70, 80]
 PREVIOUS_TOUR = 80          # 2025-26, for detecting who changed clubs
@@ -11,6 +11,29 @@ PREVIOUS_TOUR = 80          # 2025-26, for detecting who changed clubs
 # gap should tilt a projection, never dominate it.
 ELO_COEF = 0.00055
 ADJ_FLOOR, ADJ_CEIL = 0.70, 1.35
+# DOMESTIC ELO IS OFF, and this is a deliberate negative result.
+#
+# football-data.co.uk gives 15,644 free domestic matches covering 32 of the 36
+# clubs -- 18x the 878 UCL matches. Fitting them in makes the ratings WORSE:
+#
+#   UCL only     ARS 1815  PSG 1803  BAY 1782  RMA 1680  BAR 1680  LIV 1650
+#   + domestic   BAY 1786  BOD 1759  ARS 1733  BAR 1709  AEK 1709  SPO 1702
+#
+# Bodo/Glimt second in Europe and AEK Athens fifth. Elo is league-relative: a
+# club dominating the Eliteserien looks identical to one dominating the
+# Bundesliga, because nothing anchors the two scales together. The UCL matches
+# ARE that anchor, and 878 of them cannot hold against 15,644.
+#
+# Down-weighting does not fix it -- it shrinks the distortion but not its
+# direction; Bodo/Glimt still placed top-5 at every weight from 0.05 to 1.0.
+# The real fix is a per-league strength OFFSET (UEFA country coefficients would
+# supply one) applied before fitting, so each league starts on a calibrated
+# scale. Until then this stays off and the ratings come from continental
+# matches only, where every result is inherently cross-league.
+#
+# Set to a positive value only alongside that offset, and judge it on the
+# backtest rather than on the rating table.
+DOMESTIC_WEIGHT = 0.0
 
 
 @dataclass
@@ -64,16 +87,33 @@ def detect_transfers(current: list[feeds.Player],
             if p.minutes > 0 and before.get(p.id, p.team_id) != p.team_id}
 
 
+def fit_ratings(teams: list[feeds.Team], tour: int,
+                use_domestic: bool = False) -> dict[int, float]:
+    """Elo over UCL results plus domestic league results.
+
+    Continental matches only by default -- see DOMESTIC_WEIGHT for why adding
+    15,644 domestic matches made the ratings worse rather than better.
+    """
+    pots = {t.id: t.pot for t in teams}
+    results = strength.historical_results(ARCHIVED_TOURS + [tour])
+    if use_domestic and DOMESTIC_WEIGHT > 0:
+        try:
+            results += [
+                replace(r, weight=DOMESTIC_WEIGHT)
+                for r in domestic.domestic_results(teams)
+            ]
+        except Exception:                                    # noqa: BLE001
+            pass          # domestic source down: UCL-only Elo still works
+    results.sort(key=lambda r: r.date)
+    return strength.fit_elo(results, pots)
+
+
 def load(tour: int = feeds.CURRENT_TOUR, *, fit_strength: bool = True) -> Context:
     c = feeds.constraints(tour)
     teams = feeds.teams(tour)
     mds = feeds.matchdays(tour)
     pl = feeds.players(tour, c.matchday)
-    elo: dict[int, float] = {}
-    if fit_strength:
-        pots = {t.id: t.pot for t in teams}
-        results = strength.historical_results(ARCHIVED_TOURS + [tour])
-        elo = strength.fit_elo(results, pots)
+    elo = fit_ratings(teams, tour) if fit_strength else {}
     return Context(tour, c, teams, mds, pl, elo, detect_transfers(pl))
 
 
