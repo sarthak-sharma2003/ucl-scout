@@ -83,6 +83,22 @@ def price_prior_minutes(value: float) -> float:
     return max(0.0, min(85.0, (value - 4.0) / 7.0 * 90.0))
 
 
+# Minutes a player needs before his own share is trusted over a guess from
+# price. An absolute count for a full prior season; a share of the sample that
+# ACTUALLY EXISTS early in one. UEFA zeroes every cumulative stat the moment
+# MD1 locks, and no one can hold 270 minutes of a season one matchday old, so
+# an absolute floor marks the entire game imputed exactly when the first real
+# starts land -- which left zero eligible keepers and zero defenders, and an
+# infeasible optimizer (docs/GAPS.md P0).
+TRUSTED_MINUTES = 270.0
+TRUSTED_SHARE = 0.6
+
+
+def observed_minutes_needed(team_peak_minutes: float) -> float:
+    """How many minutes count as a real sample, given the season's length."""
+    return min(TRUSTED_MINUTES, TRUSTED_SHARE * max(0.0, team_peak_minutes))
+
+
 def _positional_base(players: list[Player]) -> dict[str, float]:
     """Median points/90 per position among players with a real sample."""
     out = {}
@@ -164,10 +180,9 @@ def estimate_minutes(
     # team_peak_minutes ~= the club's games * 90, so this normalises share.
     if team_peak_minutes > 0 and p.minutes > 0:
         share = min(90.0, 90.0 * p.minutes / team_peak_minutes)
-        confidence = min(1.0, p.minutes / 450)
-        if confidence >= 0.6:
+        if p.minutes >= observed_minutes_needed(team_peak_minutes):
             return Minutes(share * doubt, MinutesSource.OBSERVED_UCL,
-                           "prior-season UCL minutes share")
+                           "UCL minutes share")
 
     return Minutes(
         price_prior_minutes(p.value) * doubt,
@@ -251,6 +266,19 @@ def demo():
     m2 = estimate_minutes(settled, team_peak_minutes=1000.0)
     assert m2.source is MinutesSource.OBSERVED_UCL and m2.trusted
     assert 75 <= m2.expected <= 90, m2.expected
+
+    # One matchday into a season UEFA has zeroed everything, so a 90-minute
+    # start IS the entire sample and must count as observed. An absolute
+    # 270-minute floor marked the whole game imputed here (docs/GAPS.md P0).
+    md1 = estimate_minutes(mk(6, "MD1 Starter", 99, mins=90, pts=6, value=6.0),
+                           team_peak_minutes=90.0)
+    assert md1.source is MinutesSource.OBSERVED_UCL, md1.source
+    assert md1.expected >= 85, md1.expected
+
+    # ...but a cameo in that same matchday is still a guess.
+    cameo = estimate_minutes(mk(7, "Cameo", 99, mins=12, pts=1, value=6.0),
+                             team_peak_minutes=90.0)
+    assert cameo.source is MinutesSource.IMPUTED_PRICE, cameo.source
 
     # A published XI outranks everything.
     m3 = estimate_minutes(settled, 1000.0, predicted_lineups={2: False})

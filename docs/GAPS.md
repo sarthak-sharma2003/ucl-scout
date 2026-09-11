@@ -2,7 +2,7 @@
 
 Audited 2026-09-09, MD1 in progress. Produced by an adversarial pass
 (`scripts/audit.py`) that looks for failures rather than confirmation:
-**2 FAIL, 12 GAP, 2 PASS.**
+**2 FAIL, 12 GAP, 2 PASS.** Re-audited 2026-09-11 after MD1: **0 FAIL, 12 GAP, 4 PASS** — both P0 FAILs below are fixed.
 
 FAIL = broken right now. GAP = runs, but the behaviour is wrong or absent for a
 case that *will* occur this season.
@@ -13,7 +13,7 @@ Nothing here is speculative. Every item was reproduced against the live feed.
 
 ## P0 — broken right now
 
-### 1. The optimizer is infeasible. The next publish will crash. `FAIL`
+### 1. The optimizer is infeasible. The next publish will crash. `FIXED 2026-09-11`
 
 ```
 eligible for XI: {'FWD': 6, 'MID': 4}     # 10 players, of 967
@@ -51,7 +51,13 @@ players with a real start this season* — is the fix here too.
 it, relax it until a legal XI exists, and say so in the output. A guard that can
 make the problem unsolvable is worse than no guard.
 
-### 2. In-season minutes are ignored for ~3 matchdays. `FAIL`
+**Fixed 2026-09-11.** `optimize._feasible_gate` lowers the gate in steps
+(70 -> 60 -> 45 -> 30 -> 0) until each position can field its XI minimum, and
+reports which threshold it used on `Squad.min_start_used` / `Squad.note`. The
+captain guard drops the same way when nothing has observed minutes at all.
+Covered by the module self-check: an all-imputed pool still returns a legal XI.
+
+### 2. In-season minutes are ignored for ~3 matchdays. `FIXED 2026-09-11`
 
 184 players already have real 2026/27 minutes (Mbappé 89, Haaland 90,
 Vinícius 87). All are still marked `IMPUTED_PRICE`, because the confidence
@@ -61,6 +67,12 @@ exactly the window where the model most needs real information.
 
 **Fix:** scale confidence by matchdays played so far, not by an absolute
 minutes count.
+
+**Fixed 2026-09-11.** `project.observed_minutes_needed` asks for
+`min(270, 0.6 x team_peak_minutes)`, i.e. a share of the sample that actually
+exists. A full prior season still needs 270 (behaviour unchanged, so the
+backtest is untouched); one matchday in, a 90-minute start counts as observed
+and a 12-minute cameo does not. Observed players at MD2: 350 of 966, up from 0.
 
 ---
 

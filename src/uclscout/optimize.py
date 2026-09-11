@@ -34,6 +34,8 @@ class Squad:
     captain: Projection
     cost: float
     xi_points: float
+    min_start_used: float = 0.0
+    note: str = ""
 
     @property
     def bench(self) -> list[Projection]:
@@ -57,6 +59,29 @@ def _effective(p: Projection) -> float:
     return p.points * (1.0 if p.minutes.trusted else IMPUTED_PENALTY)
 
 
+def _feasible_gate(P: list[Projection], min_start: float) -> tuple[float, str]:
+    """The minutes gate, lowered only as far as a legal XI requires.
+
+    A guard that can make the problem unsolvable is worse than no guard. After
+    UEFA's MD1 stat reset nothing cleared 70 minutes, so zero keepers and zero
+    defenders were eligible and the solver returned Infeasible (docs/GAPS.md
+    P0). Relax in steps and SAY SO, rather than dropping the rule silently.
+    """
+    for gate in (min_start, 60.0, 45.0, 30.0, 0.0):
+        if gate > min_start:
+            continue
+        pool = [p for p in P if p.minutes.expected >= gate]
+        if len(pool) < XI_SIZE:
+            continue
+        if all(sum(1 for p in pool if p.player.pos == pos) >= n
+               for pos, n in XI_MIN.items()):
+            if gate == min_start:
+                return gate, ""
+            return gate, (f"minutes gate relaxed {min_start:.0f} -> {gate:.0f} "
+                          "min: too few players clear it for a legal XI")
+    return 0.0, f"minutes gate dropped from {min_start:.0f}: no XI clears it"
+
+
 def optimize(
     projections: list[Projection],
     *,
@@ -76,6 +101,15 @@ def optimize(
         raise ValueError(f"only {len(P)} available players")
     locked, banned = locked or set(), banned or set()
     idx = range(len(P))
+
+    min_start, gate_note = _feasible_gate(P, min_start)
+    # The Gordon guard bars imputed minutes from the armband, but if NOTHING
+    # has observed minutes it bars every player and the solve is infeasible.
+    captain_guard = any(p.can_captain and p.minutes.expected >= min_start
+                        for p in P)
+    if not captain_guard:
+        gate_note = " ".join(filter(None, [
+            gate_note, "captain guard dropped: no player has observed minutes"]))
 
     m = pulp.LpProblem("ucl_squad", pulp.LpMaximize)
     sq = pulp.LpVariable.dicts("sq", idx, cat="Binary")
@@ -103,7 +137,7 @@ def optimize(
         m += cp[i] <= st[i]
         if P[i].minutes.expected < min_start:
             m += st[i] == 0                       # the minutes gate
-        if not P[i].can_captain:
+        if captain_guard and not P[i].can_captain:
             m += cp[i] == 0                       # the Gordon guard
         if P[i].player.id in banned:
             m += sq[i] == 0
@@ -132,6 +166,8 @@ def optimize(
         captain=capt,
         cost=sum(p.player.value for p in picks),
         xi_points=sum(p.points for p in xi),
+        min_start_used=min_start,
+        note=gate_note,
     )
 
 
@@ -186,6 +222,19 @@ def demo():
     assert benched.player.id not in {p.player.id for p in s.xi}, "gate leaked"
     for club in {p.player.team_id for p in s.picks}:
         assert sum(1 for p in s.picks if p.player.team_id == club) <= 3
+
+    # The MD1 stat-reset shape: everything imputed, nothing near the gate.
+    # The gate must degrade to keep a legal XI, not return Infeasible.
+    reset_pool = []
+    for pos, n in (("GK", 4), ("DEF", 8), ("MID", 8), ("FWD", 5)):
+        for k in range(n):
+            pid += 1
+            reset_pool.append(mk(pid, pos, 4.5 + k * 0.3, 2.0 + k * 0.2, 20,
+                                 team=pid % 9, trusted=False))
+    r = optimize(reset_pool, budget=100.0, max_per_club=3, min_start=70)
+    assert len(r.xi) == XI_SIZE and len(r.picks) == SQUAD_SIZE
+    assert r.min_start_used < 70, r.min_start_used
+    assert "relaxed" in r.note or "dropped" in r.note, r.note
 
     # Limitless: dropping the budget cap cannot make the squad worse.
     rich = optimize(pool, budget=100.0, max_per_club=3, min_start=70,

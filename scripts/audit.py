@@ -37,7 +37,9 @@ h1 = pipeline.horizon(ctx, upto=c.matchday)
 md = h1.get(c.matchday, [])
 imp = sum(1 for p in md if not p.minutes.trusted)
 rec("FAIL" if imp == len(md) and md else "PASS", "minutes provenance",
-    f"{imp}/{len(md)} imputed. Nothing is observed -> every pick is price-driven.")
+    f"{imp}/{len(md)} imputed, {len(md) - imp} observed."
+    + (" Nothing is observed -> every pick is price-driven."
+       if imp == len(md) and md else ""))
 
 # 3. Does the horizon cover the knockouts?
 full = pipeline.horizon(ctx)
